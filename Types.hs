@@ -22,11 +22,22 @@ import Data.Functor.Identity
 --import Control.Comonad
 import Control.Comonad.Cofree
 
-data Type = TVar String | Zero | One | Sum Type Type | Prod Type Type | TIso Type Type
+data Type = TVar String
+          | Zero
+          | One
+          | Sum Type Type
+          | Prod Type Type
+          | TIso Type Type -- TODO separate type for Iso
   deriving (Eq, Ord, Show)
 
-data Iso = ZeroE | SwapS | AssocLS | Unite
-         | SwapP | AssocLP | Distrib0 | Distrib
+data Iso = ZeroE
+         | SwapS
+         | AssocLS
+         | Unite
+         | SwapP
+         | AssocLP
+         | Distrib0
+         | Distrib
   deriving (Eq, Ord, Show)
 
 data FExpr a = EVar String
