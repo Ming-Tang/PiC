@@ -84,3 +84,4 @@ parseType = either (error . show) id . parse (typeParser <* eof) ""
 
 parseExpr :: String -> Expr
 parseExpr = either (error . show) id . parse (exprParser <* eof) ""
+

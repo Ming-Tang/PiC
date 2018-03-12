@@ -6,6 +6,7 @@ module Types (
 , Cofree(..)
 , Identity
 , Type(..)
+, FType(..)
 , Iso(..)
 , FExpr(..)
 , Expr
@@ -16,10 +17,6 @@ import Data.Set(Set)
 import Data.List.NonEmpty(NonEmpty(..))
 import Data.Functor.Identity
 
---import Control.Applicative
---import Control.Monad
---import Control.Monad.State.Strict
---import Control.Comonad
 import Control.Comonad.Cofree
 
 data Type = TVar String
@@ -29,6 +26,12 @@ data Type = TVar String
           | Prod Type Type
           | TIso Type Type -- TODO separate type for Iso
   deriving (Eq, Ord, Show)
+
+data FType a = FZero
+             | FOne
+             | FSum a a
+             | FProd a a
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 data Iso = ZeroE
          | SwapS
