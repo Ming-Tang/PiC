@@ -65,7 +65,7 @@ exprIdent = getFromIdent <$> ident where
 
   isos = [ ("zeroe", "zeroi", ZeroE)
          , ("assocLS", "assocRS", AssocLS)
-         , ("unite", "uniti", Unite)
+         , ("unite", "uniti", UnitE)
          , ("assocLP", "assocRP", AssocLP)
          , ("distrib0", "factor0", Distrib0)
          , ("distrib", "factor", Distrib) ]

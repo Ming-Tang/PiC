@@ -63,6 +63,7 @@ wiresSizes t = fromJust $ zipWithFType (\(a, b) c -> WS a b c) (wires t) (sizes 
 
 toFType :: Type -> Maybe (Cofree FType ())
 toFType Zero = return (() :< FZero)
+--toFType Zero = Nothing
 toFType One = return (() :< FOne)
 toFType (Sum a b) = (\a b -> () :< FSum a b) <$> toFType a <*> toFType b
 toFType (Prod a b) = (\a b -> () :< FProd a b) <$> toFType a <*> toFType b

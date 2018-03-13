@@ -36,7 +36,7 @@ data FType a = FZero
 data Iso = ZeroE
          | SwapS
          | AssocLS
-         | Unite
+         | UnitE
          | SwapP
          | AssocLP
          | Distrib0
