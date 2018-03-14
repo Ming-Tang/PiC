@@ -43,7 +43,7 @@ typeVar = f <$> ident where
 typeNum = fromN <$> natural where
   fromN 0 = Zero
   fromN 1 = One
-  fromN k = Sum One (fromN (k - 1))
+  fromN k = Sum (fromN (k - 1)) One
 
 exprTable = [ [ prefixReserved "sym" (u ESym) ]
             , [ binary ";" (b ECompose) AssocLeft
@@ -67,7 +67,8 @@ exprIdent = getFromIdent <$> ident where
   getFromIdent v = fromMaybe (() :< EVar v) $ M.lookup v idents
 
   idents :: Map String Expr
-  idents = M.fromList [ ("id", () :< EId)
+  idents = M.fromList [ ("i", iso I1)
+                      , ("id", () :< EId)
                       , ("swapP", iso SwapP)
                       , ("swapS", iso SwapS) ]
            `M.union` M.fromList (concat [ [(a, iso i), (b, iso' i)]

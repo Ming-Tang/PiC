@@ -1,5 +1,6 @@
-module Infer (IsoType, UnifyErr(..), typeTree, unify, subst) where
+module Infer (IsoType, UnifyErr(..), typeTree, getType, unify, subst) where
 import Text.Show.Prettyprint
+import Debug.Trace
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Traversable as T
@@ -43,10 +44,11 @@ data UnifyErr = UnifyErr Type Type
 
 type TypeMap = Map String Type
 
-class IsoType a where
+class Show a => IsoType a where
   isoType :: a -> (Type, Type)
 
 instance IsoType Iso where
+  isoType I1 = (One, One)
   isoType ZeroE = (Sum Zero vB, vB)
   isoType SwapS = (Sum vB1 vB2, Sum vB2 vB1)
   isoType AssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
@@ -57,6 +59,7 @@ instance IsoType Iso where
   isoType Distrib = (Prod (Sum vB1 vB2) vB3, Sum (Prod vB1 vB3) (Prod vB2 vB3))
 
 instance IsoType PIso where
+  isoType PI1 = (One, One)
   isoType PZeroE = (Sum Zero vB, vB)
   isoType PSwapS = (Sum vB1 vB2, Sum vB2 vB1)
   isoType PAssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
@@ -75,10 +78,6 @@ freshVarId prefix = do
   modify $ \s -> s { tsVarId = succ v }
   return $ TVar $ prefix ++ "." ++ show v
 
-attribute :: IsoType i => Cofree (FExprS i) () -> Cofree (FExprS i) (Type, TypeResult)
-attribute c = evalState (T.sequence $ extend genConstraints c) initial
-  where initial = TS { tsVarId = 0 }
-
 vB, vB1, vB2, vB3 :: Type
 vB = TVar "b"
 vB1 = TVar "a"
@@ -88,87 +87,82 @@ vB3 = TVar "c"
 tr0 :: [Constraint] -> TypeResult
 tr0 = flip TR mempty
 
-freshVarABC :: TypeCheck (Type, Type, Type)
-freshVarABCD :: TypeCheck (Type, Type, Type, Type)
+freshVarABC :: String -> TypeCheck (Type, Type, Type)
+freshVarABCD :: String -> TypeCheck (Type, Type, Type, Type)
 
-freshVarABC = do
-  a <- freshVarId "a"
-  b <- freshVarId "b"
-  c <- freshVarId "c"
+freshVarABC prefix = do
+  a <- freshVarId $ prefix ++ "$a"
+  b <- freshVarId $ prefix ++ "$b"
+  c <- freshVarId $ prefix ++ "$c"
   return (a, b, c)
 
-freshVarABCD = do
-  (a, b, c) <- freshVarABC
-  d <- freshVarId "d"
+freshVarABCD prefix = do
+  (a, b, c) <- freshVarABC prefix
+  d <- freshVarId $ prefix ++ "$d"
   return (a, b, c, d)
 
-genConstraints :: IsoType i => Cofree (FExprS i) () -> TypeCheck (Type, TypeResult)
-genConstraints (() :< EVar s) = do
+infer :: IsoType i => Cofree (FExprS i) () -> TypeCheck (Cofree (FExprS i) (Type, TypeResult))
+infer (() :< EVar s) = do
   var <- freshVarId $ "$v$" ++ s
-  return (var, TR [] $ M.singleton s [var])
+  return ((var, TR [] $ M.singleton s [var]) :< EVar s)
 
-genConstraints (() :< EIso iso) = do
+infer (() :< EIso iso) = do
   let (tin, tout) = isoType iso
   let (vin, vout) = (allVars tin, allVars tout)
   let vars = S.toList $ S.fromList (vin ++ vout)
   subs <- M.fromList . zip vars <$> mapM freshVarId vars
   let (tin', tout') = (subst subs tin, subst subs tout)
-  t <- freshVarId "$i"
-  return (t, tr0 [ t =:= tin' <-> tout' ])
+  t <- freshVarId "$iso"
+  return ((t, tr0 [ t =:= tin' <-> tout' ]) :< EIso iso)
 
 -- id :: a <-> a
-genConstraints (() :< EId) = do
+infer (() :< EId) = do
   t <- freshVarId "$id"
-  a <- freshVarId "a"
-  b <- freshVarId "b"
-  return (t, tr0 [ t =:= a <-> a, a =:= b ])
+  a <- freshVarId "$id$a"
+  b <- freshVarId "$id$b"
+  return ((t, tr0 [ t =:= a <-> a, a =:= b ]) :< EId)
 
 -- f :: a <-> b
 -- sym f :: b <-> a
-genConstraints (() :< ESym f) = do
-  (t', aTR) <- genConstraints f
+infer (() :< ESym f) = do
+  fe@((t', aTR) :< _) <- infer f
   t <- freshVarId "$sym"
-  a <- freshVarId "a"
-  b <- freshVarId "b"
-  return (t, tr0 [ t =:= b <-> a
-                 , t' =:= a <-> b ]
-             `mappend` aTR)
+  a <- freshVarId "$sym$a"
+  b <- freshVarId "$sym$b"
+  let p = (t, tr0 [ t =:= b <-> a, t' =:= a <-> b ] `mappend` aTR)
+  return (p :< ESym fe)
 
 -- f :: a <-> c, g :: c <-> b
--- f >> g :: a <-> b
-genConstraints (() :< ECompose f g) = do
-  (f, fTR) <- genConstraints f
-  (g, gTR) <- genConstraints g
-  t <- freshVarId "$co"
-  (a, b, c) <- freshVarABC
-  return (t, fTR `mappend` gTR `mappend`
-                 tr0 [ t =:= a <-> b
-                     , f =:= a <-> c
-                     , g =:= c <-> b ])
+-- f |> g :: a <-> b
+infer (() :< ECompose f g) =
+  inferResult2 f g "$co" ECompose $ \t (tf, tg) (a, b, c, d) ->
+    [ t =:= a <-> b
+    , tf =:= a <-> c
+    , tg =:= c <-> b ]
 
 -- f :: a <-> b, g :: c <-> d
 -- f + g :: a + c <-> b + d
-genConstraints (() :< ESum f g) = do
-  (f, fTR) <- genConstraints f
-  (g, gTR) <- genConstraints g
-  t <- freshVarId "$sum"
-  (a, b, c, d) <- freshVarABCD
-  return (t, fTR `mappend` gTR `mappend`
-                 tr0 [ t =:= Sum a c <-> Sum b d
-                     , f =:= a <-> b
-                     , g =:= c <-> d ])
+infer (() :< ESum f g) =
+  inferResult2 f g "$sum" ESum $ \t (tf, tg) (a, b, c, d) ->
+    [ t =:= Sum a c <-> Sum b d
+    , tf =:= a <-> b
+    , tg =:= c <-> d ]
 
 -- f :: a <-> b, g :: c <-> d
 -- f * g :: a * c <-> b * d
-genConstraints (() :< EProd f g) = do
-  (f, fTR) <- genConstraints f
-  (g, gTR) <- genConstraints g
-  t <- freshVarId "$prod"
-  (a, b, c, d) <- freshVarABCD
-  return (t, fTR `mappend` gTR `mappend`
-                 tr0 [ t =:= Prod a c <-> Prod b d
-                     , f =:= a <-> b
-                     , g =:= c <-> d ])
+infer (() :< EProd f g) =
+  inferResult2 f g "$prod" EProd $ \t (tf, tg) (a, b, c, d) ->
+    [ t =:= Prod a c <-> Prod b d
+    , tf =:= a <-> b
+    , tg =:= c <-> d ]
+
+inferResult2 f g prefix constr gC = do
+  fe@((f, fTR) :< _) <- infer f
+  ge@((g, gTR) :< _) <- infer g
+  t <- freshVarId prefix
+  (a, b, c, d) <- freshVarABCD prefix
+  let p = (t, fTR `mappend` gTR `mappend` tr0 (gC t (f, g) (a, b, c, d)))
+  return (p :< constr fe ge)
 
 solveConstraints :: [Constraint] -> Either UnifyErr TypeMap
 solveConstraints =
@@ -219,10 +213,20 @@ allVars (Sum a b) = allVars a ++ allVars b
 allVars (Prod a b) = allVars a ++ allVars b
 allVars (TIso a b) = allVars a ++ allVars b
 
-typeTree :: IsoType i => Cofree (FExprS i) () -> Either UnifyErr (Cofree (FExprS i) Type)
-typeTree c =
-    let result = attribute c
-        (r :< _) = result
-        maybeSubs = solveConstraints . trConstraints $ snd r
-    in fmap (\subs -> fmap (subst subs . fst) result) maybeSubs
+resolve :: TypeResult -> Type -> Either UnifyErr IType
+resolve tr t = (\subs -> getTIso $ subst subs t) <$> sln where
+  sln = solveConstraints . trConstraints $ tr
+
+typeTree :: IsoType i => Cofree (FExprS i) () -> Either UnifyErr (Cofree (FExprS i) IType)
+typeTree c = traverse (resolve tr0 . fst) cc where
+  cc@((_, tr0) :< _) = evalState (infer c) initial
+  initial = TS { tsVarId = 0 }
+
+getTIso :: Type -> IType
+getTIso (TIso a b) = ITIso a b
+getTIso (TVar v) = ITVar v
+getTIso t = error $ "getTIso: not an Iso type: " ++ show t
+
+getType :: IsoType i => Cofree (FExprS i) () -> Either UnifyErr IType
+getType = fmap (\(a :< _) -> a) . typeTree
 

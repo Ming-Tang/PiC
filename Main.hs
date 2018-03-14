@@ -8,7 +8,7 @@ import Convert
 testType = () :< ECompose (() :< ESym (() :< EIso ZeroE))
                           (() :< EIso SwapS)
 
-uniteP :: Either UnifyErr (Cofree NFExpr Type)
+uniteP :: Either UnifyErr (Cofree NFExpr IType)
 uniteP = typeTree $ parseExpr "unite; uniti; swapP; distrib; (swapP + swapP); (unite + unite)"
 
 main :: IO ()

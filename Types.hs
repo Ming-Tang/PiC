@@ -7,6 +7,7 @@ module Types (
 , Identity
 
 , Type(..)
+, IType(..)
 , FType(..)
 
 , Iso(..)
@@ -36,13 +37,18 @@ data Type = TVar String
           | TIso Type Type -- TODO separate type for Iso
   deriving (Eq, Ord, Show)
 
+data IType = ITVar String
+           | ITIso Type Type
+  deriving (Eq, Ord, Show)
+
 data FType a = FZero
              | FOne
              | FSum a a
              | FProd a a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-data Iso = ZeroE      -- 0 + b <-> b
+data Iso = I1         -- 1 <-> 1
+         | ZeroE      -- 0 + b <-> b
          | SwapS      -- a + b <-> b + a
          | AssocLS    -- a + (b + c) <-> (a + b) + c
          | UnitE      -- 1 * b <-> b
@@ -52,7 +58,8 @@ data Iso = ZeroE      -- 0 + b <-> b
          | Distrib    -- (a + b) * c <-> (a * c) + (b * c)
   deriving (Eq, Ord, Show)
 
-data PIso = PZeroE    -- 0 + b <-> b
+data PIso = PI1       -- 1 <-> 1
+          | PZeroE    -- 0 + b <-> b
           | PSwapS    -- a + b <-> b + a
           | PAssocLS  -- a + (b + c) <-> (a + b) + c
           | PUnitE2   -- 1 * 1 <-> 1
