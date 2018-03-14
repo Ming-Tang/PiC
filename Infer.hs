@@ -1,4 +1,4 @@
-module Infer (UnifyErr(..), typeTree, unify, subst) where
+module Infer (IsoType, UnifyErr(..), typeTree, unify, subst) where
 import Text.Show.Prettyprint
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -24,7 +24,8 @@ infixr 4 <->
 data Constraint = CEq Type Type
   deriving (Eq, Ord, Show)
 
-data TypeResult = TR { trConstraints :: [Constraint], trAssumptions :: Map String [Type] }
+data TypeResult = TR { trConstraints :: [Constraint]
+                     , trAssumptions :: Map String [Type] }
   deriving (Eq, Ord, Show)
 
 instance Monoid TypeResult where
@@ -32,57 +33,63 @@ instance Monoid TypeResult where
   mappend a b = TR (trConstraints a `mappend` trConstraints b)
                    (trAssumptions a `mappend` trAssumptions b)
 
-data TypeState t m = TS { tsVarId :: Int, tsMemo :: Map t m }
+newtype TypeState = TS { tsVarId :: Int }
   deriving (Eq, Ord, Show)
 
-type TypeCheck t = State (TypeState t (Type, TypeResult)) (Type, TypeResult)
+type TypeCheck = State TypeState
 
 data UnifyErr = UnifyErr Type Type
   deriving (Eq, Ord, Show)
 
 type TypeMap = Map String Type
 
-freshVarId :: String -> State (TypeState t m) Type
+class IsoType a where
+  isoType :: a -> (Type, Type)
+
+instance IsoType Iso where
+  isoType ZeroE = (Sum Zero vB, vB)
+  isoType SwapS = (Sum vB1 vB2, Sum vB2 vB1)
+  isoType AssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
+  isoType UnitE = (Prod One vB, vB)
+  isoType SwapP = (Prod vB1 vB2, Prod vB2 vB1)
+  isoType AssocLP = (Prod vB1 (Prod vB2 vB3), Prod (Prod vB1 vB2) vB3)
+  isoType Distrib0 = (Prod Zero vB, Zero)
+  isoType Distrib = (Prod (Sum vB1 vB2) vB3, Sum (Prod vB1 vB3) (Prod vB2 vB3))
+
+instance IsoType PIso where
+  isoType PZeroE = (Sum Zero vB, vB)
+  isoType PSwapS = (Sum vB1 vB2, Sum vB2 vB1)
+  isoType PAssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
+  isoType PUnitE2 = (Prod One One, vB)
+  isoType PSwapP = (Prod vB1 vB2, Prod vB2 vB1)
+  isoType PAssocLP = (Prod vB1 (Prod vB2 vB3), Prod (Prod vB1 vB2) vB3)
+  isoType PDistrib0 = (Prod Zero vB, Zero)
+  isoType PDistrib1 = ( Prod (Sum vB1 (Prod One vB2)) vB3
+                      , Sum (Prod vB1 vB3) (Prod vB2 vB3))
+
+-------------------------------------------------------------------------------
+
+freshVarId :: String -> TypeCheck Type
 freshVarId prefix = do
-  v <- gets tsVarId
+  v <- tsVarId <$> get
   modify $ \s -> s { tsVarId = succ v }
-  return $ TVar $ prefix ++ show v
-  --return $ TVar $ "v" ++ show v
+  return $ TVar $ prefix ++ "." ++ show v
 
-memoizedTC :: Ord c => (c -> TypeCheck c) -> c -> TypeCheck c
-memoizedTC f c = gets tsMemo >>= maybe memoize return . M.lookup c where
-    memoize = f c
-      {--do
-        r <- f c
-        modify $ \s -> s { tsMemo = M.insert c r $ tsMemo s }
-        return r--}
-
-attribute :: Cofree NFExpr () -> Cofree NFExpr (Type, TypeResult)
-attribute c =
-  let initial = TS { tsMemo = M.empty, tsVarId = 0 }
-  in evalState (T.sequence $ extend (memoizedTC genConstraints) c) initial
+attribute :: IsoType i => Cofree (FExprS i) () -> Cofree (FExprS i) (Type, TypeResult)
+attribute c = evalState (T.sequence $ extend genConstraints c) initial
+  where initial = TS { tsVarId = 0 }
 
 vB, vB1, vB2, vB3 :: Type
 vB = TVar "b"
-vB1 = TVar "aa"
-vB2 = TVar "bb"
-vB3 = TVar "cc"
-
-isoType :: Iso -> (Type, Type)
-isoType ZeroE = (Sum Zero vB, vB)
-isoType SwapS = (Sum vB1 vB2, Sum vB2 vB1)
-isoType AssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
-isoType UnitE = (Prod One vB, vB)
-isoType SwapP = (Prod vB1 vB2, Prod vB2 vB1)
-isoType AssocLP = (Prod vB1 (Prod vB2 vB3), Prod (Prod vB1 vB2) vB3)
-isoType Distrib0 = (Prod Zero vB, Zero)
-isoType Distrib = (Prod (Sum vB1 vB2) vB3, Sum (Prod vB1 vB3) (Prod vB2 vB3))
+vB1 = TVar "a"
+vB2 = TVar "b"
+vB3 = TVar "c"
 
 tr0 :: [Constraint] -> TypeResult
 tr0 = flip TR mempty
 
-freshVarABC :: State (TypeState t m) (Type, Type, Type)
-freshVarABCD :: State (TypeState t m) (Type, Type, Type, Type)
+freshVarABC :: TypeCheck (Type, Type, Type)
+freshVarABCD :: TypeCheck (Type, Type, Type, Type)
 
 freshVarABC = do
   a <- freshVarId "a"
@@ -95,7 +102,7 @@ freshVarABCD = do
   d <- freshVarId "d"
   return (a, b, c, d)
 
-genConstraints :: Cofree NFExpr () -> TypeCheck (Cofree NFExpr ())
+genConstraints :: IsoType i => Cofree (FExprS i) () -> TypeCheck (Type, TypeResult)
 genConstraints (() :< EVar s) = do
   var <- freshVarId $ "$v$" ++ s
   return (var, TR [] $ M.singleton s [var])
@@ -119,7 +126,7 @@ genConstraints (() :< EId) = do
 -- f :: a <-> b
 -- sym f :: b <-> a
 genConstraints (() :< ESym f) = do
-  (t', aTR) <- memoizedTC genConstraints f
+  (t', aTR) <- genConstraints f
   t <- freshVarId "$sym"
   a <- freshVarId "a"
   b <- freshVarId "b"
@@ -130,8 +137,8 @@ genConstraints (() :< ESym f) = do
 -- f :: a <-> c, g :: c <-> b
 -- f >> g :: a <-> b
 genConstraints (() :< ECompose f g) = do
-  (f, fTR) <- memoizedTC genConstraints f
-  (g, gTR) <- memoizedTC genConstraints g
+  (f, fTR) <- genConstraints f
+  (g, gTR) <- genConstraints g
   t <- freshVarId "$co"
   (a, b, c) <- freshVarABC
   return (t, fTR `mappend` gTR `mappend`
@@ -142,8 +149,8 @@ genConstraints (() :< ECompose f g) = do
 -- f :: a <-> b, g :: c <-> d
 -- f + g :: a + c <-> b + d
 genConstraints (() :< ESum f g) = do
-  (f, fTR) <- memoizedTC genConstraints f
-  (g, gTR) <- memoizedTC genConstraints g
+  (f, fTR) <- genConstraints f
+  (g, gTR) <- genConstraints g
   t <- freshVarId "$sum"
   (a, b, c, d) <- freshVarABCD
   return (t, fTR `mappend` gTR `mappend`
@@ -154,8 +161,8 @@ genConstraints (() :< ESum f g) = do
 -- f :: a <-> b, g :: c <-> d
 -- f * g :: a * c <-> b * d
 genConstraints (() :< EProd f g) = do
-  (f, fTR) <- memoizedTC genConstraints f
-  (g, gTR) <- memoizedTC genConstraints g
+  (f, fTR) <- genConstraints f
+  (g, gTR) <- genConstraints g
   t <- freshVarId "$prod"
   (a, b, c, d) <- freshVarABCD
   return (t, fTR `mappend` gTR `mappend`
@@ -212,7 +219,7 @@ allVars (Sum a b) = allVars a ++ allVars b
 allVars (Prod a b) = allVars a ++ allVars b
 allVars (TIso a b) = allVars a ++ allVars b
 
-typeTree :: Cofree NFExpr () -> Either UnifyErr (Cofree NFExpr Type)
+typeTree :: IsoType i => Cofree (FExprS i) () -> Either UnifyErr (Cofree (FExprS i) Type)
 typeTree c =
     let result = attribute c
         (r :< _) = result

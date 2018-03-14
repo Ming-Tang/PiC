@@ -5,12 +5,20 @@ module Types (
 , NonEmpty(..)
 , Cofree(..)
 , Identity
+
 , Type(..)
 , FType(..)
+
 , Iso(..)
+, PIso(..)
+
 , FExpr(..)
-, NFExpr(..)
+, FExprS
+, NFExpr
+, PFExpr
 , Expr
+, PExpr
+
 ) where
 import Data.Map(Map)
 import Data.Set(Set)
@@ -47,9 +55,10 @@ data Iso = ZeroE      -- 0 + b <-> b
 data PIso = PZeroE    -- 0 + b <-> b
           | PSwapS    -- a + b <-> b + a
           | PAssocLS  -- a + (b + c) <-> (a + b) + c
-          | PUnitE2   -- 2 <-> 1
+          | PUnitE2   -- 1 * 1 <-> 1
           | PSwapP    -- a * b <-> b * a
           | PAssocLP  -- a * (b * c) <-> (a * b) * c
+          | PDistrib0 -- 0 * b <-> 0
           | PDistrib1 -- (a + (1 * b)) * c <-> (a * c) + ((1 * b) * c)
   deriving (Eq, Ord, Show)
 
@@ -62,11 +71,11 @@ data FExpr v i a = EVar v
                  | EProd a a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-type NFExpr = FExpr String Iso
+type FExprS = FExpr String
 
-type PFExpr = FExpr String PIso
+type NFExpr = FExprS Iso
+type PFExpr = FExprS PIso
 
 type Expr = Cofree NFExpr ()
-
 type PExpr = Cofree PFExpr ()
 

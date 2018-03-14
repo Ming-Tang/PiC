@@ -3,6 +3,7 @@ import Types
 import Infer
 import Parser
 import FType
+import Convert
 
 testType = () :< ECompose (() :< ESym (() :< EIso ZeroE))
                           (() :< EIso SwapS)
