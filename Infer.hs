@@ -1,4 +1,5 @@
 module Infer (UnifyErr(..), typeTree, unify, subst) where
+import Text.Show.Prettyprint
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.Traversable as T
@@ -46,24 +47,26 @@ freshVarId prefix = do
   v <- gets tsVarId
   modify $ \s -> s { tsVarId = succ v }
   return $ TVar $ prefix ++ show v
+  --return $ TVar $ "v" ++ show v
 
 memoizedTC :: Ord c => (c -> TypeCheck c) -> c -> TypeCheck c
 memoizedTC f c = gets tsMemo >>= maybe memoize return . M.lookup c where
-    memoize = do
-      r <- f c
-      modify $ \s -> s { tsMemo = M.insert c r $ tsMemo s }
-      return r
+    memoize = f c
+      {--do
+        r <- f c
+        modify $ \s -> s { tsMemo = M.insert c r $ tsMemo s }
+        return r--}
 
-attribute :: Cofree FExpr () -> Cofree FExpr (Type, TypeResult)
+attribute :: Cofree NFExpr () -> Cofree NFExpr (Type, TypeResult)
 attribute c =
   let initial = TS { tsMemo = M.empty, tsVarId = 0 }
   in evalState (T.sequence $ extend (memoizedTC genConstraints) c) initial
 
 vB, vB1, vB2, vB3 :: Type
 vB = TVar "b"
-vB1 = TVar "a"
-vB2 = TVar "b"
-vB3 = TVar "c"
+vB1 = TVar "aa"
+vB2 = TVar "bb"
+vB3 = TVar "cc"
 
 isoType :: Iso -> (Type, Type)
 isoType ZeroE = (Sum Zero vB, vB)
@@ -92,9 +95,9 @@ freshVarABCD = do
   d <- freshVarId "d"
   return (a, b, c, d)
 
-genConstraints :: Cofree FExpr () -> TypeCheck (Cofree FExpr ())
+genConstraints :: Cofree NFExpr () -> TypeCheck (Cofree NFExpr ())
 genConstraints (() :< EVar s) = do
-  var <- freshVarId s
+  var <- freshVarId $ "$v$" ++ s
   return (var, TR [] $ M.singleton s [var])
 
 genConstraints (() :< EIso iso) = do
@@ -110,7 +113,8 @@ genConstraints (() :< EIso iso) = do
 genConstraints (() :< EId) = do
   t <- freshVarId "$id"
   a <- freshVarId "a"
-  return (t, tr0 [ t =:= a <-> a ])
+  b <- freshVarId "b"
+  return (t, tr0 [ t =:= a <-> a, a =:= b ])
 
 -- f :: a <-> b
 -- sym f :: b <-> a
@@ -165,24 +169,32 @@ solveConstraints =
           where solve maybeSubs (CEq a b) = do
                   subs <- maybeSubs
                   let (a', b') = (subst subs a, subst subs b)
-                  case unify a' b' of
-                    Nothing -> Left (UnifyErr a' b')
-                    Just x -> Right x
+                  unify a' b'
 
-unifyBin :: Type -> Type -> Type -> Type -> Maybe TypeMap
+unifyBin :: Type -> Type -> Type -> Type -> Either UnifyErr TypeMap
 unifyBin a b c d = do
   s1 <- unify a c
-  liftM2 mappend (unify (subst s1 b) (subst s1 d)) $ Just s1
+  liftM2 mappend (unify (subst s1 b) (subst s1 d)) $ return s1
 
-unify :: Type -> Type -> Maybe TypeMap
-unify (TVar i) b = Just $ M.singleton i b
-unify a (TVar i) = Just $ M.singleton i a
-unify Zero Zero = Just M.empty
-unify One One = Just M.empty
+occurs :: String -> Type -> Bool
+occurs i (TVar i') = i == i'
+occurs _ Zero = False
+occurs _ One = False
+occurs i (Sum a b) = occurs i a || occurs i b
+occurs i (Prod a b) = occurs i a || occurs i b
+occurs i (TIso a b) = occurs i a || occurs i b
+
+unify :: Type -> Type -> Either UnifyErr TypeMap
+--unify (TVar i) b@(TVar i') = return $ M.singleton i b
+unify (TVar i) b | not $ occurs i b = return $ M.singleton i b
+unify a (TVar i) | not $ occurs i a = return $ M.singleton i a
+unify Zero Zero = return M.empty
+unify One One = return M.empty
 unify (Sum a b) (Sum c d) = unifyBin a b c d
 unify (Prod a b) (Prod c d) = unifyBin a b c d
 unify (TIso a b) (TIso c d) = unifyBin a b c d
-unify _ _ = Nothing
+unify a b | a == b = Right M.empty
+unify a b = Left (UnifyErr a b)
 
 subst :: TypeMap -> Type -> Type
 subst subs v@(TVar i) = maybe v (subst subs) $ M.lookup i subs
@@ -200,7 +212,7 @@ allVars (Sum a b) = allVars a ++ allVars b
 allVars (Prod a b) = allVars a ++ allVars b
 allVars (TIso a b) = allVars a ++ allVars b
 
-typeTree :: Cofree FExpr () -> Either UnifyErr (Cofree FExpr Type)
+typeTree :: Cofree NFExpr () -> Either UnifyErr (Cofree NFExpr Type)
 typeTree c =
     let result = attribute c
         (r :< _) = result

@@ -9,6 +9,7 @@ module Types (
 , FType(..)
 , Iso(..)
 , FExpr(..)
+, NFExpr(..)
 , Expr
 ) where
 import Data.Map(Map)
@@ -33,24 +34,39 @@ data FType a = FZero
              | FProd a a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-data Iso = ZeroE
-         | SwapS
-         | AssocLS
-         | UnitE
-         | SwapP
-         | AssocLP
-         | Distrib0
-         | Distrib
+data Iso = ZeroE      -- 0 + b <-> b
+         | SwapS      -- a + b <-> b + a
+         | AssocLS    -- a + (b + c) <-> (a + b) + c
+         | UnitE      -- 1 * b <-> b
+         | SwapP      -- a * b <-> b * a
+         | AssocLP    -- a * (b * c) <-> (a * b) * c
+         | Distrib0   -- 0 * b <-> 0
+         | Distrib    -- (a + b) * c <-> (a * c) + (b * c)
   deriving (Eq, Ord, Show)
 
-data FExpr a = EVar String
-             | EIso Iso
-             | EId
-             | ESym a
-             | ECompose a a
-             | ESum a a
-             | EProd a a
+data PIso = PZeroE    -- 0 + b <-> b
+          | PSwapS    -- a + b <-> b + a
+          | PAssocLS  -- a + (b + c) <-> (a + b) + c
+          | PUnitE2   -- 2 <-> 1
+          | PSwapP    -- a * b <-> b * a
+          | PAssocLP  -- a * (b * c) <-> (a * b) * c
+          | PDistrib1 -- (a + (1 * b)) * c <-> (a * c) + ((1 * b) * c)
+  deriving (Eq, Ord, Show)
+
+data FExpr v i a = EVar v
+                 | EIso i
+                 | EId
+                 | ESym a
+                 | ECompose a a
+                 | ESum a a
+                 | EProd a a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-type Expr = Cofree FExpr ()
+type NFExpr = FExpr String Iso
+
+type PFExpr = FExpr String PIso
+
+type Expr = Cofree NFExpr ()
+
+type PExpr = Cofree PFExpr ()
 

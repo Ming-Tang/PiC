@@ -20,9 +20,12 @@ parens = P.parens lang
 reserved = P.reserved lang
 reservedOp = P.reservedOp lang
 
-typeTable = [ [binary "*" Prod AssocLeft, hiddenBinary Prod AssocLeft ]
-            , [binary "+" Sum AssocLeft ]
-            , [binary "<->" TIso AssocLeft ] ]
+typeTable = [ [ binary "*" Prod AssocLeft
+              , hiddenBinary Prod AssocLeft
+                -- Haskell counterpart compatibility
+              , binary "&" Prod AssocLeft ]
+            , [ binary "+" Sum AssocLeft ]
+            , [ binary "<->" TIso AssocLeft ] ]
 
 typeExpr, typeParser :: Parser Type
 typeExpr = buildExpressionParser typeTable typeTerm <?> "typeExpr"
@@ -32,16 +35,23 @@ typeParser = typeExpr
 typeTerm :: Parser Type
 typeTerm = parens typeExpr <|> typeVar <|> typeNum <?> "typeTerm"
 
-typeVar = TVar <$> ident
+typeVar = f <$> ident where
+  f "U" = One
+  f "Z" = Zero
+  f x = TVar x
+
 typeNum = fromN <$> natural where
   fromN 0 = Zero
   fromN 1 = One
   fromN k = Sum One (fromN (k - 1))
 
-exprTable = [ [prefixReserved "sym" (u ESym) ]
-            , [binary ";" (b ECompose) AssocLeft ]
-            , [binary "*" (b EProd) AssocLeft, hiddenBinary (b EProd) AssocLeft ]
-            , [binary "+" (b ESum) AssocLeft ] ] where
+exprTable = [ [ prefixReserved "sym" (u ESym) ]
+            , [ binary ";" (b ECompose) AssocLeft
+                -- Haskell counterpart compatibility
+              , binary "|>" (b ECompose) AssocLeft ]
+            , [ binary "*" (b EProd) AssocLeft
+              , hiddenBinary (b EProd) AssocLeft ]
+            , [ binary "+" (b ESum) AssocLeft ] ] where
   u f a = () :< f a
   b f a b = () :< f a b
 
