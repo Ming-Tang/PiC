@@ -9,7 +9,7 @@ infixl 6 .*.
 
 a |> b = () :< ECompose a b
 a .*. b = () :< EProd a b
-a .+. b = () :< EProd a b
+a .+. b = () :< ESum a b
 
 data ConvertErr = EIsoTypeErr (Type, Type) Iso
                 | UnitENotSupported Type
@@ -32,6 +32,7 @@ convertExpr e = throwError $ ExprNotSupported e
 convertExpr2 f a b = fmap (() :<) (f <$> convertExpr a <*> convertExpr b)
 
 convertIso :: (Type, Type) -> Iso -> Convert PExpr
+convertIso (One, One) I1 = return $ iso PI1
 convertIso _ ZeroE = return $ iso PZeroE
 convertIso _ SwapS = return $ iso PSwapS
 convertIso _ AssocLS = return $ iso PAssocLS
@@ -42,7 +43,7 @@ convertIso _ Distrib0 = return $ iso PDistrib0
 convertIso (Prod (Sum a b) c, Sum (Prod a' c') (Prod b' c'')) Distrib
   | a == a' && b == b' && c == c' && c' == c'' = convertDistrib (a, b) c
 
-convertIso a b = throwError (EIsoTypeErr a b)
+convertIso a b = throwError $ EIsoTypeErr a b
 
 iso x = () :< EIso x
 eid = () :< EId
@@ -57,8 +58,8 @@ convertUnitE (Sum a b) = do
   uniteB <- convertUnitE b
   unitePB <- convertUnitE (Prod One b)
   let unitiB = () :< ESym uniteB
-  let res = eid .*. (eid .+. unitiB) |> swapP |> distrib1
-           |> ((swapP |> uniteA) .+. (swapP |> unitePB |> uniteB))
+  let res = (eid .*. (eid .+. unitiB)) |> swapP |> distrib1
+            |> ((swapP |> uniteA) .+. (swapP |> unitePB |> uniteB))
   return res
 
 convertUnitE (Prod a b) = do

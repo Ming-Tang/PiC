@@ -63,12 +63,12 @@ instance IsoType PIso where
   isoType PZeroE = (Sum Zero vB, vB)
   isoType PSwapS = (Sum vB1 vB2, Sum vB2 vB1)
   isoType PAssocLS = (Sum vB1 (Sum vB2 vB3), Sum (Sum vB1 vB2) vB3)
-  isoType PUnitE2 = (Prod One One, vB)
+  isoType PUnitE2 = (Prod One One, One)
   isoType PSwapP = (Prod vB1 vB2, Prod vB2 vB1)
   isoType PAssocLP = (Prod vB1 (Prod vB2 vB3), Prod (Prod vB1 vB2) vB3)
   isoType PDistrib0 = (Prod Zero vB, Zero)
   isoType PDistrib1 = ( Prod (Sum vB1 (Prod One vB2)) vB3
-                      , Sum (Prod vB1 vB3) (Prod vB2 vB3))
+                      , Sum (Prod vB1 vB3) (Prod (Prod One vB2) vB3))
 
 -------------------------------------------------------------------------------
 
