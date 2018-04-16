@@ -47,6 +47,7 @@ convertIso a b = throwError $ EIsoTypeErr a b
 
 iso x = () :< EIso x
 eid = () :< EId
+ei = () :< EIso PI1
 swapP = () :< EIso PSwapP
 distrib1 = () :< EIso PDistrib1
 
@@ -57,8 +58,9 @@ convertUnitE (Sum a b) = do
   uniteA <- convertUnitE a
   uniteB <- convertUnitE b
   unitePB <- convertUnitE (Prod One b)
+
   let unitiB = () :< ESym uniteB
-  let res = (eid .*. (eid .+. unitiB)) |> swapP |> distrib1
+  let res = (ei .*. (eid .+. unitiB)) |> swapP |> distrib1
             |> ((swapP |> uniteA) .+. (swapP |> unitePB |> uniteB))
   return res
 

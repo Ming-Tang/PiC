@@ -7,6 +7,7 @@ import Text.Parsec.Expr
 import Text.Parsec.Language(haskellStyle)
 
 import Types
+import GetIso(isos)
 
 type Parser = ParsecT String () Identity
 
@@ -45,13 +46,13 @@ typeNum = fromN <$> natural where
   fromN 1 = One
   fromN k = Sum (fromN (k - 1)) One
 
-exprTable = [ [ prefixReserved "sym" (u ESym) ]
-            , [ binary ";" (b ECompose) AssocLeft
+exprTable = [ [ prefixReserved "sym" (u ESym) ]         -- 4
+            , [ binary ";" (b ECompose) AssocLeft       -- 3
                 -- Haskell counterpart compatibility
               , binary "|>" (b ECompose) AssocLeft ]
-            , [ binary "*" (b EProd) AssocLeft
+            , [ binary "*" (b EProd) AssocLeft          -- 2
               , hiddenBinary (b EProd) AssocLeft ]
-            , [ binary "+" (b ESum) AssocLeft ] ] where
+            , [ binary "+" (b ESum) AssocLeft ] ] where -- 1
   u f a = () :< f a
   b f a b = () :< f a b
 
@@ -67,19 +68,11 @@ exprIdent = getFromIdent <$> ident where
   getFromIdent v = fromMaybe (() :< EVar v) $ M.lookup v idents
 
   idents :: Map String Expr
-  idents = M.fromList [ ("i", iso I1)
-                      , ("id", () :< EId)
-                      , ("swapP", iso SwapP)
-                      , ("swapS", iso SwapS) ]
-           `M.union` M.fromList (concat [ [(a, iso i), (b, iso' i)]
-                                        | (a, b, i) <- isos])
-
-  isos = [ ("zeroe", "zeroi", ZeroE)
-         , ("assocLS", "assocRS", AssocLS)
-         , ("unite", "uniti", UnitE)
-         , ("assocLP", "assocRP", AssocLP)
-         , ("distrib0", "factor0", Distrib0)
-         , ("distrib", "factor", Distrib) ]
+  idents = M.fromList [ ("id", () :< EId) ]
+           `M.union` M.fromList (
+             concat [ if a == b then [(a, iso i)]
+                      else [(a, iso i), (b, iso' i)]
+                    | (a, b, i) <- isos ])
 
   iso x = () :< EIso x
   iso' x = () :< ESym (() :< EIso x)
