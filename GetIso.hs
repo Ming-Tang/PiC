@@ -39,12 +39,15 @@ mi = M.fromList . map (\(a, b, c) -> (c, (a, b)))
 class GetIso i where
   getIso :: i -> String
   getSymIso :: i -> String
+  isoNames :: [(String, String, i)]
 
 instance GetIso Iso where
   getIso = fst . (isoMap M.!)
   getSymIso = snd . (isoMap M.!)
+  isoNames = isos
 
 instance GetIso PIso where
   getIso = fst . (pisoMap M.!)
   getSymIso = snd . (pisoMap M.!)
+  isoNames = pisos
 

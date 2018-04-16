@@ -17,9 +17,13 @@ joinEither (Left x) = Left (Left x)
 joinEither (Right (Left x)) = Left (Right x)
 joinEither (Right (Right x)) = Right x
 
-ty s = (\(t :< _) -> t) <$> typeTree (parseExpr s)
-tt s = typeTree $ parseExpr s
-ce s = joinEither $ (prettyExpr <$>) . convertExpr <$> typeTree (parseExpr s)
+typeFromExpr s = (\(t :< _) -> t) <$> typeTree (parseExpr s)
+typeFromPExpr s = (\(t :< _) -> t) <$> typeTree (parsePExpr s)
+
+typeTreeExpr s = typeTree $ parseExpr s
+typeTreePExpr s = typeTree $ parsePExpr s
+
+convExpr s = joinEither $ (prettyExpr <$>) . convertExpr <$> typeTree (parseExpr s)
 
 main :: IO ()
 main = print $ typeTree testType

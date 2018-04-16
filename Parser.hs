@@ -1,4 +1,20 @@
-module Parser (ParseError, Parser, typeParser, parseType, parseExpr) where
+module Parser (
+
+-- * Types
+  ParseError
+, TypeParser
+, ExprParser
+
+-- * Parsers
+, typeParser
+, exprParser
+
+-- * Parse
+, parseType
+, parseExpr
+, parsePExpr
+
+) where
 import Data.Maybe
 import qualified Data.Map as M
 import Text.Parsec
@@ -7,9 +23,10 @@ import Text.Parsec.Expr
 import Text.Parsec.Language(haskellStyle)
 
 import Types
-import GetIso(isos)
+import GetIso
 
-type Parser = ParsecT String () Identity
+type TypeParser = ParsecT String () Identity
+type ExprParser = ParsecT String () Identity
 
 langDef = haskellStyle
 lang = P.makeTokenParser langDef
@@ -28,12 +45,12 @@ typeTable = [ [ binary "*" Prod AssocLeft
             , [ binary "+" Sum AssocLeft ]
             , [ binary "<->" TIso AssocLeft ] ]
 
-typeExpr, typeParser :: Parser Type
+typeExpr, typeParser :: TypeParser Type
 typeExpr = buildExpressionParser typeTable typeTerm <?> "typeExpr"
 
 typeParser = typeExpr
 
-typeTerm :: Parser Type
+typeTerm :: TypeParser Type
 typeTerm = parens typeExpr <|> typeVar <|> typeNum <?> "typeTerm"
 
 typeVar = f <$> ident where
@@ -46,6 +63,7 @@ typeNum = fromN <$> natural where
   fromN 1 = One
   fromN k = Sum (fromN (k - 1)) One
 
+exprTable :: GetIso i => [[Operator String u Identity (IExpr i)]]
 exprTable = [ [ prefixReserved "sym" (u ESym) ]         -- 4
             , [ binary ";" (b ECompose) AssocLeft       -- 3
                 -- Haskell counterpart compatibility
@@ -56,23 +74,22 @@ exprTable = [ [ prefixReserved "sym" (u ESym) ]         -- 4
   u f a = () :< f a
   b f a b = () :< f a b
 
-expr, exprParser :: Parser Expr
+expr, exprParser, exprTerm, exprIdent :: GetIso i => ExprParser (IExpr i)
 expr = buildExpressionParser exprTable exprTerm <?> "expr"
 
 exprParser = expr
 
-exprTerm :: Parser Expr
 exprTerm = parens expr <|> exprIdent <?> "exprTerm"
 
 exprIdent = getFromIdent <$> ident where
   getFromIdent v = fromMaybe (() :< EVar v) $ M.lookup v idents
 
-  idents :: Map String Expr
+  idents :: GetIso i => Map String (IExpr i)
   idents = M.fromList [ ("id", () :< EId) ]
            `M.union` M.fromList (
              concat [ if a == b then [(a, iso i)]
                       else [(a, iso i), (b, iso' i)]
-                    | (a, b, i) <- isos ])
+                    | (a, b, i) <- isoNames ])
 
   iso x = () :< EIso x
   iso' x = () :< ESym (() :< EIso x)
@@ -88,4 +105,7 @@ parseType = either (error . show) id . parse (typeParser <* eof) ""
 
 parseExpr :: String -> Expr
 parseExpr = either (error . show) id . parse (exprParser <* eof) ""
+
+parsePExpr :: String -> PExpr
+parsePExpr = either (error . show) id . parse (exprParser <* eof) ""
 

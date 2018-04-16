@@ -19,7 +19,7 @@ module Types (
 , PFExpr
 , Expr
 , PExpr
-
+, IExpr
 ) where
 import Data.Map(Map)
 import Data.Set(Set)
@@ -85,4 +85,5 @@ type PFExpr = FExprS PIso
 
 type Expr = Cofree NFExpr ()
 type PExpr = Cofree PFExpr ()
+type IExpr i = Cofree (FExprS i) ()
 
