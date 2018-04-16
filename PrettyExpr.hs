@@ -27,6 +27,7 @@ toPrTreeS (x :< EIso i) = x :< PTLeaf (getIso i)
 toPrTreeS (x :< EId) = x :< PTLeaf "id"
 toPrTreeS (x :< ESym a) = x :< PTApp "sym" (toPrTreeS a)
 
+-- TODO fix these precedences
 toPrTreeS (x :< ECompose a b) = x :< PTBin 3 "|>" (toPrTreeS a) (toPrTreeS b)
 toPrTreeS (x :< EProd a b) = x :< PTBin 3 "*" (toPrTreeS a) (toPrTreeS b)
 toPrTreeS (x :< ESum a b) = x :< PTBin 3 "+" (toPrTreeS a) (toPrTreeS b)
@@ -48,3 +49,4 @@ prettyExpr = wpVal . prTreeToString . toPrTreeS
 
 brk p0 (WP p1 s) | p1 > p0 = s
                  | otherwise = "(" ++ s ++ ")"
+

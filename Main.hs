@@ -25,6 +25,10 @@ typeTreePExpr s = typeTree $ parsePExpr s
 
 convExpr s = joinEither $ (prettyExpr <$>) . convertExpr <$> typeTree (parseExpr s)
 
+prop_convExpr e = t == t' where
+  t = either (const Nothing) Just $ joinEither $ typeFromPExpr <$> convExpr e
+  t' = either (const Nothing) Just $ joinEither $ typeFromPExpr <$> convExpr e
+
 main :: IO ()
 main = print $ typeTree testType
 
