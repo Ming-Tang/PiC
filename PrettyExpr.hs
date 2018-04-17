@@ -21,6 +21,16 @@ data WithPrec a = WP { wpPrec :: Prec, wpVal :: a }
 
 type PrTreeS = PrTree String String String String
 
+typeToPrTreeS :: Type -> Cofree PrTreeS ()
+typeToPrTreeS (TVar v) = () :< PTLeaf v
+typeToPrTreeS Zero = () :< PTLeaf "0"
+typeToPrTreeS One = () :< PTLeaf "1"
+
+-- TODO fix these precedences
+typeToPrTreeS (Sum a b) = () :< PTBin 3 "+" (typeToPrTreeS a) (typeToPrTreeS b)
+typeToPrTreeS (Prod a b) = () :< PTBin 3 "*" (typeToPrTreeS a) (typeToPrTreeS b)
+typeToPrTreeS (TIso a b) = () :< PTBin 3 "<->" (typeToPrTreeS a) (typeToPrTreeS b)
+
 toPrTreeS :: GetIso i => Cofree (FExprS i) a -> Cofree PrTreeS a
 toPrTreeS (x :< EVar v) = x :< PTLeaf v
 toPrTreeS (x :< EIso i) = x :< PTLeaf (getIso i)
@@ -44,9 +54,16 @@ prTreeToString (_ :< PTBin p' bin a b) = WP p' (f1 a' b') where
 sub :: Prec -> Cofree PrTreeS a -> String
 sub p0 t = brk p0 (prTreeToString t)
 
+brk p0 (WP p1 s) | p1 > p0 = s
+                 | otherwise = "(" ++ s ++ ")"
+
 prettyExpr :: GetIso i => Cofree (FExprS i) a -> String
 prettyExpr = wpVal . prTreeToString . toPrTreeS
 
-brk p0 (WP p1 s) | p1 > p0 = s
-                 | otherwise = "(" ++ s ++ ")"
+prettyType :: Type -> String
+prettyType = wpVal . prTreeToString . typeToPrTreeS
+
+prettyIType :: IType -> String
+prettyIType (ITVar v) = v
+prettyIType (ITIso a b) = prettyType a ++ " <-> " ++ prettyType b
 
