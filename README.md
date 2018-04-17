@@ -31,6 +31,22 @@ Press tab to autocomplete command or function name.
  - `:ce <expr>`: Convert a Pi function to IPi function
  - `:p <expr>`: Confirm the property that the converted IPi has the same type as the original Pi function
 
+# Sample Interaction
+
+```
+>>> :t distrib; uniti; swapP; ((swapS; factor) * uniti); assocLP; (distrib * id * id); swapP; unite; swapP; unite
+(a.0 + b.1) * c.2 <-> (b.1 * c.2) + (a.0 * c.2)
+>>> :t ((((i+i)+(i+i+i)) + (i*i*i))* (i + i)); distrib; uniti; swapP; ((swapS; factor) * uniti); assocLP; (distrib * id * id); swapP; unite; swapP; unite
+(((1 + 1) + ((1 + 1) + 1)) + ((1 * 1) * 1)) * (1 + 1) <-> (((1 * 1) * 1) * (1 + 1)) + (((1 + 1) + ((1 + 1) + 1)) * (1 + 1))
+
+>>> :c ((i+i) * (i+i)); distrib; uniti; swapP; ((swapS; factor) * uniti); assocLP; (distrib * id * id); swapP; unite; swapP; unite
+(((((((((((i + i) * (i + i)) |> ((((id + sym unite2) * id) |> distrib1) |> (id + (unite2 * id)))) |> sym ((((i * (id + sym (assocLP |> (unite2 * id)))) |> swapP) |> distrib1) |> ((swapP |> (assocLP |> (unite2 * id))) + ((swapP |> (assocLP |> (unite2 * id))) |> (assocLP |> (unite2 * id)))))) |> swapP) |> ((swapS |> sym ((((id + sym unite2) * id) |> distrib1) |> (id + (unite2 * id)))) * sym unite2)) |> assocLP) |> ((((((id + sym unite2) * id) |> distrib1) |> (id + (unite2 * id))) * id) * id)) |> swapP) |> (assocLP |> (((((i * (id + sym (assocLP |> (unite2 * id)))) |> swapP) |> distrib1) |> ((swapP |> (assocLP |> (unite2 * id))) + ((swapP |> (assocLP |> (unite2 * id))) |> (assocLP |> (unite2 * id))))) * id))) |> swapP) |> ((((i * (id + sym (assocLP |> (unite2 * id)))) |> swapP) |> distrib1) |> ((swapP |> (assocLP |> (unite2 * id))) + ((swapP |> (assocLP |> (unite2 * id))) |> (assocLP |> (unite2 * id)))))
+
+>>> :p ((i+i) * (i+i)); distrib; uniti; swapP; ((swapS; factor) * uniti); assocLP; (distrib * id * id); swapP; unite; swapP; unite
+True
+```
+
   [1]: https://www.cs.indiana.edu/~sabry/papers/theseus.pdf
   [2]: https://www.cs.indiana.edu/~sabry/papers/rational.pdf
-  
+
+
