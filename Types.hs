@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, TemplateHaskell #-}
 module Types (
   Map
 , Set
@@ -21,6 +21,11 @@ module Types (
 , PExpr
 , IExpr
 ) where
+
+import Data.Eq.Deriving
+import Data.Ord.Deriving
+import Text.Show.Deriving
+
 import Data.Map(Map)
 import Data.Set(Set)
 
@@ -77,6 +82,10 @@ data FExpr v i a = EVar v
                  | ESum a a
                  | EProd a a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+$(deriveEq1 ''FExpr)
+$(deriveOrd1 ''FExpr)
+$(deriveShow1 ''FExpr)
 
 type FExprS = FExpr String
 

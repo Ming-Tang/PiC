@@ -68,5 +68,5 @@ ini :: Repl ()
 ini = liftIO $ return ()
 
 main :: IO ()
-main = evalRepl ">>> " cmd options (Word completer) ini
+main = evalRepl (pure ">>> ") cmd options (Just ':') (Word completer) ini
 

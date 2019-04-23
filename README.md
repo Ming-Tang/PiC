@@ -14,7 +14,7 @@ for more details about the Pi language.
 
 In our syntax, function composition is denoted by `;` or `|>`. In function names, the `+` and `*` suffixes are `S` and `P` in our syntax.
 
-The `i :: 1 <-> 1` function is used to contrain the input type, so that the IPi conversion is possible.
+The `i :: 1 <-> 1` function is used to constrain the input type, so that the IPi conversion is possible.
 
 # Running REPL
 

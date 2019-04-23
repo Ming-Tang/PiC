@@ -29,10 +29,12 @@ data TypeResult = TR { trConstraints :: [Constraint]
                      , trAssumptions :: Map String [Type] }
   deriving (Eq, Ord, Show)
 
+instance Semigroup TypeResult where
+  (<>) a b = TR (trConstraints a `mappend` trConstraints b)
+                (trAssumptions a `mappend` trAssumptions b)
+
 instance Monoid TypeResult where
   mempty = TR mempty mempty
-  mappend a b = TR (trConstraints a `mappend` trConstraints b)
-                   (trAssumptions a `mappend` trAssumptions b)
 
 newtype TypeState = TS { tsVarId :: Int }
   deriving (Eq, Ord, Show)

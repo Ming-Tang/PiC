@@ -48,7 +48,6 @@ parallelSize sf sg = Size (pa + pb, qa + qb) (min sa sb, max sc sd) where
   (Size (pa, qa) (sa, sc)) = sf
   (Size (pb, qb) (sb, sd)) = sg
 
-
 compile :: Cofree PFExpr IType -> CompileResult
 compile (ITVar v :< _) = throwError $ TVarNotSupported v
 compile (_ :< EVar v) = throwError $ EVarNotSupported v
